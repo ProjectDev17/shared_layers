@@ -14,3 +14,8 @@ Resources:
     Metadata:
       BuildMethod: python3.12            # <- CLAVE para que SAM ejecute pip
       BuildArchitecture: x86_64          # (o arm64, pero usa la misma que tu Lambda)
+
+Outputs:
+  CommonLayerArn:
+    Description: "ARN of the common utils layer"
+    Value: !Ref CommonLayer
