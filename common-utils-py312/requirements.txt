@@ -1,0 +1,7 @@
+pymongo   
+certifi
+PyJWT
+python-dotenv
+cryptography
+uuid6
+bcrypt

@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: layer-crm-python312
+      Description: Funciones comunes para Lambdas Python 3.12
+      ContentUri: ..\..\common-utils-py312
+      CompatibleRuntimes:
+      - python3.12
+      CompatibleArchitectures:
+      - x86_64
+      - arm64
+      RetentionPolicy: Retain
+Outputs:
+  CommonLayerArn:
+    Description: ARN de la layer compartida
+    Value:
+      Ref: CommonLayer
