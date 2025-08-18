@@ -4,7 +4,7 @@ import bcrypt
 import time
 import uuid
 import json
-from typing import Any, Callable, Dict
+from typing import Optional, Dict, Any
 from services.db import get_mongo_client
 from services.db import get_database
 from utils.hash_password import verify_password  # Usa tu función de la layer
@@ -12,6 +12,8 @@ from utils.jwt_token import generate_jwt, generate_jwt_refresh, decode_jwt  # Us
 from utils.send_email import send_email
 from utils.timestamp import add_hours_to_timestamp, now_ts
 from utils.jwt_token import decode_token
+
+
 
 def _get_user_collection(db_name):
     client = get_mongo_client()

@@ -14,3 +14,8 @@ Resources:
       BuildArchitecture: x86_64
       BuildMethod: python3.12
       SamResourceId: CommonLayer
+Outputs:
+  CommonLayerArn:
+    Description: ARN of the common utils layer
+    Value:
+      Ref: CommonLayer
