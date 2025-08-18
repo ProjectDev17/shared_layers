@@ -12,8 +12,7 @@ from utils.jwt_token import generate_jwt, generate_jwt_refresh, decode_jwt  # Us
 from utils.send_email import send_email
 from utils.timestamp import add_hours_to_timestamp, now_ts
 from utils.jwt_token import decode_token
-
-
+from bson import ObjectId
 
 def _get_user_collection(db_name):
     client = get_mongo_client()
@@ -128,7 +127,7 @@ def authenticate_request(event: Dict[str, Any]) -> Dict[str, Any]:
 
     # intenta obtener el user_id con distintos esquemas de payload
     user_id = (
-        (decoded_token.get("user") or {}).get("_id")
+        (decoded_token.get("user_id") or {})
         if isinstance(decoded_token, dict) else None
     ) or (decoded_token.get("sub") if isinstance(decoded_token, dict) else None)
 
@@ -155,7 +154,7 @@ def authenticate_request(event: Dict[str, Any]) -> Dict[str, Any]:
         return {"statusCode": 404, "body": json.dumps({"error": "User not found"})}
 
     # valida que el token corresponda al actual guardado
-    current_access_token = user_data.get("current_access_token")
+    current_access_token = user_data.get("access_token")
     if not current_access_token or access_token != current_access_token:
         return {"statusCode": 401, "body": json.dumps({"error": "Invalid token"})}
 
