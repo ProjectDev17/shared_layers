@@ -2,4 +2,11 @@
 
 [function_build_definitions]
 
-[layer_build_definitions]
+[layer_build_definitions.ccca79c6-96d6-405b-9eb4-a30362166d77]
+layer_name = "CommonLayer"
+codeuri = "C:\\WORK\\HEALTH\\lambdas\\shared_layers\\common-utils-py312"
+build_method = "python3.12"
+compatible_runtimes = ["python3.12"]
+architecture = "x86_64"
+manifest_hash = ""
+layer = "CommonLayer"
