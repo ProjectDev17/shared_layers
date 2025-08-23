@@ -14,6 +14,8 @@ from utils.timestamp import add_hours_to_timestamp, now_ts
 from utils.jwt_token import decode_token
 from bson import ObjectId
 
+MONGODB_DB_NAME="crm"
+
 def _get_user_collection(db_name):
     client = get_mongo_client()
     return client[db_name]["users"]
@@ -134,13 +136,8 @@ def authenticate_request(event: Dict[str, Any]) -> Dict[str, Any]:
     if not user_id:
         return {"statusCode": 401, "body": json.dumps({"error": "Invalid token: missing user_id"})}
 
-    # db_name desde el evento o variable de entorno
-    db_name = (event.get("db_name") if isinstance(event, dict) else None) or os.getenv("MONGODB_DB_NAME")
-    if not db_name:
-        return {"statusCode": 500, "body": json.dumps({"error": "Missing DB name (MONGODB_DB_NAME)"})}
-
-    db = get_database(db_name)
-    users = db["users"]
+    db_crm = get_database(MONGODB_DB_NAME)
+    users = db_crm["users"]
 
     # si el _id es ObjectId válido, úsalo; si no, búscalo como string
     query_id = None

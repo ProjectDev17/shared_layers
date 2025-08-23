@@ -5,10 +5,6 @@ from uuid6 import uuid6
 from datetime import datetime
 from utils.timestamp import now_ts
 
-# Dependencia externa que ya tienes en tu proyecto
-# from your_layer.mongo import get_database
-
-
 # =========================
 # Utilidades de respuesta
 # =========================
