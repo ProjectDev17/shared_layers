@@ -62,15 +62,15 @@ def post(event, context):
         body = dict(body)  # copia
         body.pop("table_name", None)
 
-        now_ts = now_ts()
+        now = now_ts()
         generated_id = str(uuid6())
 
         new_item = {
             **body,
             "_id": generated_id,
-            "created_at": now_ts,
+            "created_at": now,
             "created_by": user_data.get("_id"),
-            "updated_at": now_ts,
+            "updated_at": now,
             "updated_by": user_data.get("_id"),
             "deleted": False,
             "status": True,
