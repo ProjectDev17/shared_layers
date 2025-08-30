@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 from uuid6 import uuid6
 
-from services.db import get_database
 from utils.timestamp import now_ts
 from utils.crud import _resp, _get_user_db_or_403, _parse_body_or_400, _require_table_name_from_query, _require_table_name_from_body, _get_db_and_collection, _require_path_id, _find_existing_or_error
 

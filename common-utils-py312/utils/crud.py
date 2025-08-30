@@ -4,6 +4,7 @@ from typing import Any, Dict, Tuple
 from uuid6 import uuid6
 from datetime import datetime
 from utils.timestamp import now_ts
+from services.db import get_database
 
 # =========================
 # Utilidades de respuesta
