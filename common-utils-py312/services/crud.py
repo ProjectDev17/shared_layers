@@ -1,100 +1,74 @@
+import json
+from datetime import datetime
+from uuid6 import uuid6
+
+from services.db import get_database
+from utils.timestamp import now_ts
+from utils.crud import _resp, _get_user_db_or_403, _parse_body_or_400, _require_table_name_from_query, _require_table_name_from_body, _get_db_and_collection, _require_path_id, _find_existing_or_error
+
+# =========================
+# Handlers
+# =========================
 def get(event, context):
-    # permission_middleware = permission_middleware(event, context)
-
-    # if permission_middleware is not True:
-    #     return permission_middleware
-    
-    auth_result = event.get("auth_result", {})
-    user_data = auth_result.get("user_data", {})
-    
-    if not user_data.get("db_name"):
-        return {
-            "statusCode": 403,
-            "body": json.dumps({"error": "Unauthorized"})
-        }
-    
-    table_name = event.get("queryStringParameters", {}).get("table_name")
-
-    #valida si viene el table_name
-    if not table_name:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "Falta el campo 'table_name' en el cuerpo de la solicitud"})
-        }
+    # Si vas a reactivar tu permission_middleware, hazlo aquí.
     try:
-        db = get_database(user_data.get("db_name"))
-        collection = db[table_name]
-        module_id = event.get("pathParameters", {}).get("id")
+        user_data, err = _get_user_db_or_403(event)
+        if err: 
+            return err
+
+        # GET: table_name viene por query
+        table_name, err = _require_table_name_from_query(event)
+        if err: 
+            return err
+
+        db, collection = _get_db_and_collection(user_data["db_name"], table_name)
+        module_id = (event.get("pathParameters") or {}).get("id")
+
         if module_id:
-            try:
-                doc = collection.find_one({"_id": module_id, "deleted": False})
-                if not doc:
-                    return {
-                        "statusCode": 404,
-                        "body": json.dumps({"error": "Documento no encontrado o fue eliminado"})
-                    }
+            doc = collection.find_one({"_id": module_id, "deleted": False})
+            if not doc:
+                return _resp(404, {"error": "Documento no encontrado o fue eliminado"})
+            return _resp(200, doc)
 
-                return {
-                    "statusCode": 200,
-                    "body": json.dumps(doc)
-                }
-            except Exception as e:
-                return {
-                    "statusCode": 400,
-                    "body": json.dumps({"error": f"Error al buscar el documento: {str(e)}"})
-                }
-        items_cursor = collection.find({"deleted": False})
-        items = []
-        for doc in items_cursor:
-            items.append(doc)
+        # Listado simple
+        items = list(collection.find({"deleted": False}))
+        total = len(items)
+        return _resp(200, {
+            "current_page": 1,
+            "total_pages": 1,
+            "total_items": total,
+            "per_page": total,
+            "next_page": None,
+            "previous_page": None,
+            "items": items
+        })
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "current_page": 1,
-                "total_pages": 1,
-                "total_items": len(items),
-                "per_page": len(items),
-                "next_page": None,
-                "previous_page": None,
-                "items": items
-            })
-        }
     except Exception as e:
-            return _response(400, {"error": f"Error al buscar el documento: {str(e)}"})
-  
+        return _resp(400, {"error": f"Error al buscar el documento: {str(e)}"})
+
 
 def post(event, context):
     try:
-        auth_result = event.get("auth_result", {})
-        user_data = auth_result.get("user_data", {})
-        
-        if not user_data.get("db_name"):
-            return {
-                "statusCode": 403,
-                "body": json.dumps({"error": "Unauthorized"})
-            }
+        user_data, err = _get_user_db_or_403(event)
+        if err: 
+            return err
 
-        db = get_database(user_data.get("db_name"))
-        body = json.loads(event.get("body") or "{}")
-        if not body or not isinstance(body, dict):
-            return _response(400, {"error": "El body debe ser un JSON válido con campos a actualizar"})
-        
-        table_name = body.get("table_name")
-        #valida si viene el table_name
-        if not table_name:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Falta el campo 'table_name' en el cuerpo de la solicitud"})
-            }
-        collection = db[table_name]
+        body, err = _parse_body_or_400(event)
+        if err: 
+            return err
 
-        now_ts = int(datetime.now().timestamp())
-        generated_id = str(uuid6())
-        global_key_str = f"template_{generated_id}"
+        table_name, err = _require_table_name_from_body(body)
+        if err: 
+            return err
 
-        #Eliminar el table_name del body
+        db, collection = _get_db_and_collection(user_data["db_name"], table_name)
+
+        # limpiar body de metacampos reservados
+        body = dict(body)  # copia
         body.pop("table_name", None)
+
+        now_ts = now_ts()
+        generated_id = str(uuid6())
 
         new_item = {
             **body,
@@ -108,157 +82,108 @@ def post(event, context):
         }
 
         collection.insert_one(new_item)
-
-        return {
-            "statusCode": 201,
-            "body": json.dumps({
-                "message": f"Registro creado con ID {generated_id}",
-                "item": new_item
-            })
-        }
+        return _resp(201, {
+            "message": f"Registro creado con ID {generated_id}",
+            "item": new_item
+        })
 
     except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return _resp(500, {"error": str(e)})
 
 
 def put(event, context):
     try:
-        auth_result = event.get("auth_result", {})
-        user_data = auth_result.get("user_data", {})
-        
-        if not user_data.get("db_name"):
-            return {
-                "statusCode": 403,
-                "body": json.dumps({"error": "Unauthorized"})
-            }
+        user_data, err = _get_user_db_or_403(event)
+        if err: 
+            return err
 
-        db = get_database(user_data.get("db_name"))
-        body = json.loads(event.get("body") or "{}")
-        if not body or not isinstance(body, dict):
-            return _response(400, {"error": "El body debe ser un JSON válido con campos a actualizar"})
-        
-        table_name = body.get("table_name")
-        #valida si viene el table_name
-        if not table_name:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Falta el campo 'table_name' en el cuerpo de la solicitud"})
-            }
-        collection = db[table_name]
+        body, err = _parse_body_or_400(event)
+        if err: 
+            return err
 
-        _id = event.get("pathParameters", {}).get("id")
-        if not _id:
-            return _response(400, {"error": "Falta el parámetro '_id' en la ruta"})
+        table_name, err = _require_table_name_from_body(body)
+        if err: 
+            return err
 
-        # Verificar existencia y que no esté eliminado
-        existing_doc = collection.find_one({"_id": _id})
-        if not existing_doc:
-            return _response(404, {"error": f"No se encontró {table_name} con ID {_id}"})
-        if existing_doc.get("deleted", False):
-            return _response(400, {"error": f"No se puede editar {table_name} con ID {_id} porque está eliminado"})
+        _id, err = _require_path_id(event)
+        if err: 
+            return err
 
-        # Validar nombre duplicado si incluye "name"
-        new_name = body.get("name")
-        if new_name and isinstance(new_name, str) and new_name.strip():
-            new_name = new_name.strip()
-            if collection.find_one({
+        db, collection = _get_db_and_collection(user_data["db_name"], table_name)
+
+        existing, err = _find_existing_or_error(collection, _id, allow_deleted=False, noun=table_name)
+        if err: 
+            return err
+
+        # Validación de nombre duplicado (si viene name)
+        if isinstance(body.get("name"), str) and body["name"].strip():
+            new_name = body["name"].strip()
+            dup = collection.find_one({
                 "name": {"$regex": f"^{new_name}$", "$options": "i"},
                 "_id": {"$ne": _id},
                 "deleted": False
-            }):
-                return _response(409, {"error": f"Ya existe otra {table_name} con el nombre '{new_name}'"})
+            })
+            if dup:
+                return _resp(409, {"error": f"Ya existe otra {table_name} con el nombre '{new_name}'"})
             body["name"] = new_name
 
-        # Preparar y aplicar la actualización
-        body["updated_at"] = int(datetime.now().timestamp())
+        # Metadatos de actualización
+        body = dict(body)  # copia
+        body.pop("table_name", None)
+        body["updated_at"] = now_ts()
         body["updated_by"] = user_data.get("_id")
 
-        result = collection.update_one(
-            {"_id": _id},
-            {"$set": body}
-        )
-
+        result = collection.update_one({"_id": _id}, {"$set": body})
         if result.matched_count == 0:
-            return _response(404, {"error": f"No se encontró {table_name} con ID {_id}"})
+            return _resp(404, {"error": f"No se encontró {table_name} con ID {_id}"})
 
         updated_doc = collection.find_one({"_id": _id})
-        updated_doc["_id"] = str(updated_doc["_id"])
-
-        return _response(200, {
+        return _resp(200, {
             "message": f"{table_name} {_id} actualizada correctamente",
             "item": updated_doc
         })
 
     except Exception as e:
-        return _response(500, {"error": str(e)})
+        return _resp(500, {"error": str(e)})
 
 
 def delete(event, context):
-    """
-    Lógica para DELETE  (borrado lógico).
-    Cambia el campo 'deleted' a True y actualiza 'updated_at' y 'updated_by'.
-    """
+    """Borrado lógico: set deleted=True + metadatos de update."""
     try:
-        auth_result = event.get("auth_result", {})
-        user_data = auth_result.get("user_data", {})
-        
-        if not user_data.get("db_name"):
-            return {
-                "statusCode": 403,
-                "body": json.dumps({"error": "Unauthorized"})
-            }
+        user_data, err = _get_user_db_or_403(event)
+        if err: 
+            return err
 
-        db = get_database(user_data.get("db_name"))
-        body = json.loads(event.get("body") or "{}")
-        if not body or not isinstance(body, dict):
-            return _response(400, {"error": "El body debe ser un JSON válido con campos a actualizar"})
-        
-        table_name = body.get("table_name")
-        #valida si viene el table_name
-        if not table_name:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "Falta el campo 'table_name' en el cuerpo de la solicitud"})
-            }
-        collection = db[table_name]
+        body, err = _parse_body_or_400(event)
+        if err: 
+            return err
 
-        _id = event.get("pathParameters", {}).get("id")
-        if not _id:
-            return _response(400, {"error": "Falta el parámetro '_id' en la ruta"})
+        table_name, err = _require_table_name_from_body(body)
+        if err: 
+            return err
 
-        # Verificar existencia y que no esté eliminado
-        existing_doc = collection.find_one({"_id": _id})
-        if not existing_doc:
-            return _response(404, {"error": f"No se encontró {table_name} con ID {_id}"})
-        if existing_doc.get("deleted", False):
-            return _response(400, {"error": f"No se puede editar {table_name} con ID {_id} porque está eliminado"})
+        _id, err = _require_path_id(event)
+        if err: 
+            return err
 
-        # Actualizar documento: borrado lógico
+        db, collection = _get_db_and_collection(user_data["db_name"], table_name)
+
+        existing, err = _find_existing_or_error(collection, _id, allow_deleted=False, noun=table_name)
+        if err: 
+            return err
+
         result = collection.update_one(
             {"_id": _id},
-            {
-                "$set": {
-                    "deleted": True,
-                    "updated_at": int(datetime.now().timestamp()),
-                    "updated_by": user_data.get("_id")
-                }
-            }
+            {"$set": {
+                "deleted": True,
+                "updated_at": now_ts(),
+                "updated_by": user_data.get("_id")
+            }}
         )
-
         if result.matched_count == 0:
-            return _response(404, {"error": f"No se encontró la {table_name} con ese ID para eliminar"})
+            return _resp(404, {"error": f"No se encontró la {table_name} con ese ID para eliminar"})
 
-        return _response(200, {"message": f"{table_name} {_id} marcada como eliminada"})
+        return _resp(200, {"message": f"{table_name} {_id} marcada como eliminada"})
 
     except Exception as e:
-        return _response(500, {"error": str(e)})
-
-
-def _response(status_code, body_dict):
-    return {
-        "statusCode": status_code,
-        "body": json.dumps(body_dict)
-    }
+        return _resp(500, {"error": str(e)})

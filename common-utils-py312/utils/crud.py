@@ -77,9 +77,63 @@ def build_new_item(body: Dict[str, Any], created_by_user: str) -> Dict[str, Any]
         "status": True
     }
 
-
 # =========================
 # Persistencia
 # =========================
 def insert_item(collection, item: Dict[str, Any]) -> None:
     collection.insert_one(item)
+
+# =========================
+# Helpers (DRY)
+# =========================
+def _resp(status, body):
+    return {"statusCode": status, "body": json.dumps(body)}
+
+def _get_user_db_or_403(event):
+    """Valida auth_result.user_data.db_name y retorna (user_data, db_name) o 403."""
+    auth_result = event.get("auth_result", {}) or {}
+    user_data = auth_result.get("user_data", {}) or {}
+    db_name = user_data.get("db_name")
+    if not db_name:
+        return None, _resp(403, {"error": "Unauthorized"})
+    return (user_data, db_name)
+
+def _parse_body_or_400(event):
+    """Intenta cargar body JSON como dict ({} si vacío)."""
+    try:
+        body = json.loads(event.get("body") or "{}")
+        if not isinstance(body, dict):
+            return None, _resp(400, {"error": "El body debe ser un JSON válido con campos a actualizar"})
+        return body, None
+    except Exception:
+        return None, _resp(400, {"error": "Body inválido. Debe ser JSON"})
+
+def _require_table_name_from_query(event):
+    table_name = (event.get("queryStringParameters") or {}).get("table_name")
+    if not table_name:
+        return None, _resp(400, {"error": "Falta el campo 'table_name' en el cuerpo de la solicitud"})
+    return table_name, None
+
+def _require_table_name_from_body(body):
+    table_name = (body or {}).get("table_name")
+    if not table_name:
+        return None, _resp(400, {"error": "Falta el campo 'table_name' en el cuerpo de la solicitud"})
+    return table_name, None
+
+def _get_db_and_collection(db_name, table_name):
+    db = get_database(db_name)
+    return db, db[table_name]
+
+def _require_path_id(event):
+    _id = (event.get("pathParameters") or {}).get("id")
+    if not _id:
+        return None, _resp(400, {"error": "Falta el parámetro '_id' en la ruta"})
+    return _id, None
+
+def _find_existing_or_error(collection, _id, allow_deleted=False, noun="registro"):
+    existing = collection.find_one({"_id": _id})
+    if not existing:
+        return None, _resp(404, {"error": f"No se encontró {noun} con ID {_id}"})
+    if not allow_deleted and existing.get("deleted", False):
+        return None, _resp(400, {"error": f"No se puede operar sobre {noun} con ID {_id} porque está eliminado"})
+    return existing, None
