@@ -153,7 +153,7 @@ def delete(event, context):
         if err: 
             return err
 
-        table_name, err = _require_table_name_from_body(body)
+        table_name, err = _require_table_name_from_query(body)
         if err: 
             return err
 
@@ -171,8 +171,8 @@ def delete(event, context):
             {"_id": _id},
             {"$set": {
                 "deleted": True,
-                "updated_at": now_ts(),
-                "updated_by": user_data.get("_id")
+                "deleted_at": now_ts(),
+                "deleted_by": user_data.get("_id")
             }}
         )
         if result.matched_count == 0:
