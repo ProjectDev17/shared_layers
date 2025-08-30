@@ -153,7 +153,7 @@ def delete(event, context):
         if err: 
             return err
 
-        table_name, err = _require_table_name_from_query(body)
+        table_name, err = _require_table_name_from_query(event)
         if err: 
             return err
 
