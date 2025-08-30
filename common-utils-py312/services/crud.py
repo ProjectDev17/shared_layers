@@ -10,13 +10,11 @@ from utils.crud import _resp, _get_user_db_or_403, _parse_body_or_400, _require_
 # Handlers
 # =========================
 def get(event, context):
-    # Si vas a reactivar tu permission_middleware, hazlo aquí.
     try:
         user_data, err = _get_user_db_or_403(event)
         if err: 
             return err
 
-        # GET: table_name viene por query
         table_name, err = _require_table_name_from_query(event)
         if err: 
             return err
@@ -30,7 +28,6 @@ def get(event, context):
                 return _resp(404, {"error": "Documento no encontrado o fue eliminado"})
             return _resp(200, doc)
 
-        # Listado simple
         items = list(collection.find({"deleted": False}))
         total = len(items)
         return _resp(200, {
@@ -45,7 +42,6 @@ def get(event, context):
 
     except Exception as e:
         return _resp(400, {"error": f"Error al buscar el documento: {str(e)}"})
-
 
 def post(event, context):
     try:

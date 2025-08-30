@@ -86,17 +86,22 @@ def insert_item(collection, item: Dict[str, Any]) -> None:
 # =========================
 # Helpers (DRY)
 # =========================
-def _resp(status, body):
-    return {"statusCode": status, "body": json.dumps(body)}
+def _resp(status: int, payload):
+    # Respuesta tipo Lambda Proxy Integration
+    return {
+        "statusCode": status,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(payload, default=str)
+    }
 
 def _get_user_db_or_403(event):
-    """Valida auth_result.user_data.db_name y retorna (user_data, db_name) o 403."""
-    auth_result = event.get("auth_result", {}) or {}
-    user_data = auth_result.get("user_data", {}) or {}
+    auth_result = (event or {}).get("auth_result", {})
+    user_data = auth_result.get("user_data", {})
     db_name = user_data.get("db_name")
     if not db_name:
         return None, _resp(403, {"error": "Unauthorized"})
-    return (user_data, db_name)
+    return user_data, None
+
 
 def _parse_body_or_400(event):
     """Intenta cargar body JSON como dict ({} si vacío)."""
@@ -109,9 +114,10 @@ def _parse_body_or_400(event):
         return None, _resp(400, {"error": "Body inválido. Debe ser JSON"})
 
 def _require_table_name_from_query(event):
-    table_name = (event.get("queryStringParameters") or {}).get("table_name")
+    qsp = (event or {}).get("queryStringParameters") or {}
+    table_name = qsp.get("table_name")
     if not table_name:
-        return None, _resp(400, {"error": "Falta el campo 'table_name' en el cuerpo de la solicitud"})
+        return None, _resp(400, {"error": "Falta el campo 'table_name' en query"})
     return table_name, None
 
 def _require_table_name_from_body(body):
@@ -120,9 +126,11 @@ def _require_table_name_from_body(body):
         return None, _resp(400, {"error": "Falta el campo 'table_name' en el cuerpo de la solicitud"})
     return table_name, None
 
-def _get_db_and_collection(db_name, table_name):
+def _get_db_and_collection(db_name: str, table_name: str):
     db = get_database(db_name)
-    return db, db[table_name]
+    collection = db[table_name]
+    # >>> DEVUELVE el objeto db, no el nombre
+    return db, collection
 
 def _require_path_id(event):
     _id = (event.get("pathParameters") or {}).get("id")
