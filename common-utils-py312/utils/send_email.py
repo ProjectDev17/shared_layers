@@ -27,19 +27,5 @@ def send_email(email: str, subject: str, body: str):
     except Exception as e:
         return f"Error enviando correo: {e}"
 
-def send_validation_email(email, token):
-    """
-    Envía el email de validación al usuario usando SMTP de Gmail.
-    """
-    FRONTEND_URL = os.getenv("FRONTEND_URL", "https://digitalcrm.net")
-    validation_link = f"{FRONTEND_URL}/validate-email?token={token}"
-    
-    subject = "Valida tu cuenta"
-    body = f"""Hola,
-        Para validar tu cuenta, haz clic en el siguiente enlace:
-        {validation_link}
-
-        Si no solicitaste este registro, puedes ignorar este mensaje.
-    """
-
-    return send_email(email, subject, body)
+def send_validation_email(email, token, subject, body):
+     return send_email(email, subject, body)

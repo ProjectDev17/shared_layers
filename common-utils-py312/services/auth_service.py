@@ -63,7 +63,7 @@ def authenticate(email: str, password: str, db_name: str) -> Optional[Dict]:
         }
     }
 
-def send_password_reset(email: str, db_name: str) -> bool:
+def send_password_reset(email: str, db_name: str, title: str, body: str) -> bool:
     db = get_database(db_name)
     users = db["users"]
     user = users.find_one({"email": email, "status": True})
@@ -80,9 +80,7 @@ def send_password_reset(email: str, db_name: str) -> bool:
         }}
     )
 
-    body = f"Haz clic en el siguiente enlace para restablecer tu contraseña: https://digitalcrm.net/reset-password?token={new_token}"
-
-    send_email(email, "Restablecer contraseña", body)
+    send_email(email, title, body)
     return True
 
 def refresh_access_token(refresh_token: str):
